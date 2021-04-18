@@ -1,0 +1,46 @@
+{
+  "CVV": "xxx",
+  "auto_buy": true,
+  "geckodriver_path": null,
+
+  "twilio": {
+    "toNumber": "+xxxxxxxxxxx",
+    "fromNumber": "+xxxxxxxxxxx",
+    "accountSid": "",
+    "authToken": ""
+  },
+
+
+  "telegram": {
+    "token": "",
+    "chat_id": "-xxxxxxxxxxxxx"
+  },
+
+  "amazon": [
+    {
+      "username": "",
+      "password": "",
+      "amazonPage": "",
+      "blacklisted": [],
+      "min_interval": 2,
+      "max_interval": 4,
+      "min_price": 0.0,
+      "max_price": 0.0,
+      "item_must_include": ["xxxx"],
+      "blacklisted_phrases": ["gaming pc"]
+    }
+  ],
+
+  "bestbuy": [
+    {
+      "url": "https://www.bestbuy.com/site/nvidia-geforce-rtx-3090-24gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429434.p?skuId=6429434",
+      "min_interval": 2,
+      "max_interval": 4
+    },
+    {
+      "url": "https://www.bestbuy.com/site/evga-geforce-rtx-3090-xc3-ultra-gaming-24gb-gddr6-pci-express-4-0-graphics-card/6434198.p?skuId=6434198",
+      "min_interval": 2,
+      "max_interval": 4
+    }
+  ]
+}

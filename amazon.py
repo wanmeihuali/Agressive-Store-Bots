@@ -1,119 +1,235 @@
-import bs4
-import sys
 import time
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
-from twilio.rest import Client
-from selenium.webdriver.firefox.options import Options
-from webdriver_manager.firefox import GeckoDriverManager
-from twilio.base.exceptions import TwilioRestException
 
-# Amazon credentials
-username = 'your_username'
-password = 'your_password'
+import selenium.common.exceptions
+from selenium.common.exceptions import NoSuchElementException, WebDriverException
+import random
+import json
+from utils import create_driver, time_sleep
+from MessageSender import MessageSender
 
-# Twilio configuration
-toNumber = 'your_phonenumber'
-fromNumber = 'twilio_phonenumber'
-accountSid = 'ssid'
-authToken = 'authtoken'
-client = Client(accountSid, authToken)
+class AmazonBot:
+    def __init__(self, global_config, amazon_config, message_sender, on_buy_success=None):
 
+        # Amazon credentials
+        self.username = amazon_config["username"]
+        self.password = amazon_config["password"]
 
-def time_sleep(x, driver):
-    for i in range(x, -1, -1):
-        sys.stdout.write('\r')
-        sys.stdout.write('{:2d} seconds'.format(i))
-        sys.stdout.flush()
-        time.sleep(1)
-    driver.execute_script('window.localStorage.clear();')    
-    driver.refresh()
-    sys.stdout.write('\r')
-    sys.stdout.write('Page refreshed\n')
-    sys.stdout.flush()
+        self.message_sender = message_sender
+        # Twilio configuration
+        self.message_sender.send_message("store_bot started")
 
+        self.amazonPage = amazon_config["amazonPage"]
 
-def create_driver():
-    """Creating driver."""
-    options = Options()
-    options.headless = False  # Change To False if you want to see Firefox Browser Again.
-    profile = webdriver.FirefoxProfile(r'C:\Users\Trebor\AppData\Roaming\Mozilla\Firefox\Profiles\kwftlp36.default-release')
-    driver = webdriver.Firefox(profile, options=options, executable_path=GeckoDriverManager().install())
-    return driver
+        self.min_interval = amazon_config["min_interval"]
+        self.max_interval = amazon_config["max_interval"]
+        self.blacklisted = amazon_config["blacklisted"]
 
+        self.min_price = amazon_config["min_price"]
+        self.max_price = amazon_config["max_price"]
 
-def driver_wait(driver, find_type, selector):
-    """Driver Wait Settings."""
-    while True:
-        if find_type == 'css':
-            try:
-                driver.find_element_by_css_selector(selector).click()
+        self.itemst_include = amazon_config["item_must_include"]
+        self.blacklisted_phrases = amazon_config["blacklisted_phrases"]
+
+        self.driver = create_driver(global_config)
+        self.auto_buy = global_config["auto_buy"]
+        self.on_buy_success = on_buy_success
+        self.stop = False
+
+    def driver_wait(self, driver, find_type, selector):
+        """Driver Wait Settings."""
+        loop_id = 0
+        while True:
+            loop_id += 1
+            if loop_id > 300:  # 60 sec
+                print('wait failed!')
                 break
-            except NoSuchElementException:
-                driver.implicitly_wait(0.2)
-        elif find_type == 'name':
-            try:
-                driver.find_element_by_name(selector).click()
-                break
-            except NoSuchElementException:
-                driver.implicitly_wait(0.2)
+            if find_type == 'css':
+                try:
+                    driver.find_element_by_css_selector(selector).click()
+                    break
+                except NoSuchElementException:
+                    driver.implicitly_wait(0.2)
+            elif find_type == 'name':
+                try:
+                    driver.find_element_by_name(selector).click()
+                    break
+                except NoSuchElementException:
+                    driver.implicitly_wait(0.2)
 
 
-def login_attempt(driver):
-    """Attempting to login Amazon Account."""
-    driver.get('https://www.amazon.com/gp/sign-in.html')
-    try:
-        username_field = driver.find_element_by_css_selector('#ap_email')
-        username_field.send_keys(username)
-        driver_wait(driver, 'css', '#continue')
-        password_field = driver.find_element_by_css_selector('#ap_password')
-        password_field.send_keys(password)
-        driver_wait(driver, 'css', '#signInSubmit')
-        time.sleep(2)
-    except NoSuchElementException:
-        pass
-    driver.get('https://www.amazon.com/stores/GeForce/RTX3080_GEFORCERTX30SERIES/page/6B204EA4-AAAC-4776-82B1-D7C3BD9DDC82')
-
-
-def finding_cards(driver):
-    """Scanning all cards."""
-    while True:
-        time.sleep(1)
-        html = driver.page_source
-        soup = bs4.BeautifulSoup(html, 'html.parser')
+    def login_attempt(self, driver):
+        """Attempting to login Amazon Account."""
+        driver.get('https://www.amazon.com/gp/sign-in.html')
         try:
-            find_all_cards = soup.find_all('span', {'class': 'style__text__2xIA2'})
-            for card in find_all_cards:
-                if 'Add to Cart' in card.get_text():
-                    print('Card Available!')
-                    driver_wait(driver, 'css', '.style__addToCart__9TqqV')
-                    driver.get('https://www.amazon.com/gp/cart/view.html?ref_=nav_cart')
-                    driver_wait(driver, 'css', '.a-button-input')
-                    try:
-                        asking_to_login = driver.find_element_by_css_selector('#ap_password').is_displayed()
-                        if asking_to_login:
-                            driver.find_element_by_css_selector('#ap_password').send_keys(password)
-                            driver_wait(driver, 'css', '#signInSubmit')
-                    except NoSuchElementException:
-                        pass
-                    driver_wait(driver, 'css', '.a-button-input')  # Final Checkout Button!
-                    print('Order Placed')
-                    try:
-                        client.messages.create(to=toNumber, from_=fromNumber, body='ORDER PLACED!')
-                    except (NameError, TwilioRestException):
-                        pass
-                    for i in range(3):
-                        print('\a')
-                        time.sleep(1)
-                    time.sleep(1800)
-                    driver.quit()
-                    return
-        except (AttributeError, NoSuchElementException, TimeoutError):
+            username_field = driver.find_element_by_css_selector('#ap_email')
+            username_field.send_keys(self.username)
+            self.driver_wait(driver, 'css', '#continue')
+            password_field = driver.find_element_by_css_selector('#ap_password')
+            password_field.send_keys(self.password)
+            self.driver_wait(driver, 'css', '#signInSubmit')
+            time.sleep(2)
+        except NoSuchElementException:
             pass
-        time_sleep(5, driver)
+        driver.get(self.amazonPage)
 
+
+    def finding_cards(self, driver):
+        """Scanning all cards."""
+        global auto_buy
+        while not self.stop:
+            time.sleep(1)
+            try:
+                find_all_cards = driver.find_elements_by_css_selector(
+                    '.style__overlay__2qYgu.ProductGridItem__overlay__1ncmn')
+                if len(find_all_cards) <= 0:
+                    print("no card found")
+                    self.go_home()
+                    continue
+
+                index = 0
+                for card in find_all_cards:
+                    status = ''
+                    try:
+                        status = card.parent.find_element_by_css_selector('.Availability__primaryMessage__1bDnl').text
+                    except Exception:
+                        print('Failed to find status text!')
+                        index += 1
+                        continue
+
+                    if 'Currently unavailable' not in status and index not in self.blacklisted:
+                        # Open listing
+                        try:
+                            card.click()
+                        except selenium.common.exceptions.StaleElementReferenceException as e:
+                            print('Failed to click')
+                            print(e)
+                            self.go_home()
+                            index += 1
+                            continue
+
+                        self.driver_wait(driver, 'css', '#priceblock_ourprice')  # Ensures page loads & get price
+                        price = -1
+                        title = '?'
+                        try:
+                            price = driver.find_element_by_id('priceblock_ourprice')
+                            price = float(price.text.replace('$', '').replace(',', ''))
+                            title = driver.find_element_by_id('productTitle').text
+                        except Exception as e:
+                            print('Failed to get price:')
+                            print(e)
+                            self.go_home()
+                            index += 1
+                            continue
+
+                        # Title check
+                        if not self.check_name(title):
+                            print(f'Title {title} did not pass requirements!')
+                            self.blacklisted.append(index)
+                            self.go_home()
+                            index += 1
+                            continue
+
+                        if self.min_price <= price <= self.max_price:
+                            print(f'Card available! (${str(price)}) "{title}" Attempting to buy..')
+                            try:
+                                driver.find_element_by_id('buy-now-button')  # Cannot buy for some reason
+                            except NoSuchElementException:
+                                print('Buy now button was not there, going back')
+                                self.go_home()
+                                index += 1
+                                continue
+
+                            self.driver_wait(driver, 'css', '#buy-now-button')  # Clicks buy now
+                            try:
+                                asking_to_login = driver.find_element_by_css_selector('#ap_password').is_displayed()
+                                if asking_to_login:
+                                    print('Attempting to log in..')
+                                    driver.find_element_by_css_selector('#ap_password').send_keys(self.password)
+                                    self.driver_wait(driver, 'css', '#signInSubmit')
+                            except NoSuchElementException:
+                                print('Failed to login when prompted..')
+                                #go_home()  # Back to search
+                                pass
+
+                            # Final price check on buying screen... to be sure
+                            price = 0
+                            try:
+                                price = driver.find_element_by_css_selector('.grand-total-price')
+                                price = float(price.text.replace('$', '').replace(',', ''))
+                            except Exception as e:
+                                print('Failed to get grand total price:')
+                                print(e)
+                                self.go_home()
+                                index += 1
+                                continue
+
+                            if self.min_price <= price <= self.max_price:
+                                if auto_buy and not self.stop:
+                                    self.driver_wait(driver, 'css', '.a-button-input')  # Final Checkout Button!
+
+                                    if self.on_buy_success is not None:
+                                        self.on_buy_success()
+
+                                    print(f'Order Placed for {title} Price: ${str(price)}! Notifying and exiting..')
+
+                                    self.message_sender.send_message(
+                                                              f'Order Placed for "{title}" Price: ${str(price)}!')
+
+
+                                    for i in range(3):
+                                        print('\a')
+                                        time.sleep(1)
+                                    time.sleep(1800)
+                                    driver.quit()
+                                    auto_buy = False  # Safety
+                                    return
+                                else:
+                                    print('Auto buy was not enabled, waiting on purchase screen.')
+                                    return
+                            else:
+                                print(f'Final price did not pass! (${str(price)})')
+                                exit()
+                        else:
+                            self.blacklisted.append(index)
+                            print('Price did not pass ($' + str(price) + ')!')
+                            self.go_home()
+
+                    index += 1
+            except (AttributeError, NoSuchElementException, TimeoutError) as e:
+                print('Exception while scanning: ' + e)
+                pass
+            time_sleep(random.randint(self.min_interval, self.max_interval), driver)
+
+
+    def go_home(self):
+        try:
+            self.driver.get(self.amazonPage)
+        except WebDriverException:
+            print('Failed to load page - internet down?')
+
+
+    def check_name(self, title):
+        passed = True
+        for part in self.blacklisted_phrases:
+            if part.lower() in title.lower():
+                passed = False
+
+        for part in self.item_must_include:
+            if part.lower() not in title.lower():
+                passed = False
+
+        return passed
+
+    def run(self):
+        self.login_attempt(self.driver)
+        self.finding_cards(self.driver)
+
+    def stop_running(self):
+        self.stop = True
 
 if __name__ == '__main__':
-    driver = create_driver()
-    login_attempt(driver)
-    finding_cards(driver)
+    with open("config.json", "r") as f:
+        config = json.load(f)
+    sender = MessageSender(config)
+    bot = AmazonBot(config["global"], config["amazon"][0], sender)
+    bot.run()
