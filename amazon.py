@@ -7,9 +7,11 @@ import json
 from utils import create_driver, time_sleep
 from MessageSender import MessageSender
 
+
 class AmazonBot:
     def __init__(self, global_config, amazon_config, message_sender, on_buy_success=None):
 
+        self.global_config = global_config
         # Amazon credentials
         self.username = amazon_config["username"]
         self.password = amazon_config["password"]
@@ -27,13 +29,16 @@ class AmazonBot:
         self.min_price = amazon_config["min_price"]
         self.max_price = amazon_config["max_price"]
 
-        self.itemst_include = amazon_config["item_must_include"]
+        self.item_must_include = amazon_config["item_must_include"]
         self.blacklisted_phrases = amazon_config["blacklisted_phrases"]
 
         self.driver = create_driver(global_config)
         self.auto_buy = global_config["auto_buy"]
         self.on_buy_success = on_buy_success
         self.stop = False
+
+        # restart driver periodically to avoid flushing tmp folder
+        self.restart_count = 500
 
     def driver_wait(self, driver, find_type, selector):
         """Driver Wait Settings."""
@@ -56,7 +61,6 @@ class AmazonBot:
                 except NoSuchElementException:
                     driver.implicitly_wait(0.2)
 
-
     def login_attempt(self, driver):
         """Attempting to login Amazon Account."""
         driver.get('https://www.amazon.com/gp/sign-in.html')
@@ -72,11 +76,19 @@ class AmazonBot:
             pass
         driver.get(self.amazonPage)
 
-
     def finding_cards(self, driver):
         """Scanning all cards."""
         global auto_buy
+
+        count = 0
         while not self.stop:
+            count += 1
+
+            if count >= self.restart_count:
+                count = 0
+                driver = self.restart()
+                self.login_attempt(self.driver)
+
             time.sleep(1)
             try:
                 find_all_cards = driver.find_elements_by_css_selector(
@@ -148,7 +160,7 @@ class AmazonBot:
                                     self.driver_wait(driver, 'css', '#signInSubmit')
                             except NoSuchElementException:
                                 print('Failed to login when prompted..')
-                                #go_home()  # Back to search
+                                # go_home()  # Back to search
                                 pass
 
                             # Final price check on buying screen... to be sure
@@ -173,8 +185,7 @@ class AmazonBot:
                                     print(f'Order Placed for {title} Price: ${str(price)}! Notifying and exiting..')
 
                                     self.message_sender.send_message(
-                                                              f'Order Placed for "{title}" Price: ${str(price)}!')
-
+                                        f'Order Placed for "{title}" Price: ${str(price)}!')
 
                                     for i in range(3):
                                         print('\a')
@@ -200,13 +211,11 @@ class AmazonBot:
                 pass
             time_sleep(random.randint(self.min_interval, self.max_interval), driver)
 
-
     def go_home(self):
         try:
             self.driver.get(self.amazonPage)
         except WebDriverException:
             print('Failed to load page - internet down?')
-
 
     def check_name(self, title):
         passed = True
@@ -224,8 +233,14 @@ class AmazonBot:
         self.login_attempt(self.driver)
         self.finding_cards(self.driver)
 
+    def restart(self):
+        self.driver.quit()
+        self.driver = create_driver(self.global_config)
+        return self.driver
+
     def stop_running(self):
         self.stop = True
+
 
 if __name__ == '__main__':
     with open("config.json", "r") as f:

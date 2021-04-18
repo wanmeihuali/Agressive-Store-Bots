@@ -54,8 +54,8 @@ import random
 # To actually avoid buying HDMI cable, you can comment out Line 220. Uncomment the line when you are done testing.
 
 # 1. Product URL
-#url = 'https://www.bestbuy.com/site/nvidia-geforce-rtx-3080-10gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429440.p?skuId=6429440'
-#url = 'https://www.bestbuy.com/site/amd-ryzen-5-5600x-4th-gen-6-core-12-threads-unlocked-desktop-processor-with-wraith-stealth-cooler/6438943.p?skuId=6438943'
+# url = 'https://www.bestbuy.com/site/nvidia-geforce-rtx-3080-10gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429440.p?skuId=6429440'
+# url = 'https://www.bestbuy.com/site/amd-ryzen-5-5600x-4th-gen-6-core-12-threads-unlocked-desktop-processor-with-wraith-stealth-cooler/6438943.p?skuId=6438943'
 # url = 'https://www.bestbuy.com/site/amd-ryzen-7-5800x-4th-gen-8-core-16-threads-unlocked-desktop-processor-without-cooler/6439000.p?skuId=6439000'
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -63,6 +63,8 @@ import random
 class BestbuyBot:
     def __init__(self, global_config, bestbuy_config, message_sender, on_buy_success=None):
         self.url = bestbuy_config["url"]
+
+        self.global_config = global_config
 
         # 3. credit card CVV Number
         self.CVV = global_config["CVV"]
@@ -75,11 +77,13 @@ class BestbuyBot:
         self.stop = False
         self.driver = create_driver(global_config)
 
+        # restart driver periodically to avoid flushing tmp folder
+        self.restart_count = 500
+
     def extract_page(self, ):
         html = self.driver.page_source
         soup = bs4.BeautifulSoup(html, 'html.parser')
         return soup
-
 
     def driver_click(self, driver, find_type, selector):
         """Driver Wait and Click Settings."""
@@ -103,11 +107,17 @@ class BestbuyBot:
                 except NoSuchElementException:
                     driver.implicitly_wait(1)
 
-
     def searching_for_card(self, driver):
         """Scanning for card."""
         driver.get(self.url)
+        count = 0
         while not self.stop:
+            count += 1
+
+            if count >= self.restart_count:
+                count = 0
+                driver = self.restart()
+
             soup = self.extract_page()
             wait = WebDriverWait(driver, 15)
             wait2 = WebDriverWait(driver, 5)
@@ -125,7 +135,8 @@ class BestbuyBot:
                         wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".add-to-cart-button")))
                         self.driver_click(driver, 'css', '.add-to-cart-button')
                         print("Clicked Add to Cart Button. Now sending message to your phone.")
-                        print("You are now added to Best Buy's Queue System. Page will be refreshing. Please be patient.")
+                        print(
+                            "You are now added to Best Buy's Queue System. Page will be refreshing. Please be patient.")
 
                         # Sleep timer is here to give Please Wait Button to appear. Please don't edit this.
                         time.sleep(5)
@@ -164,7 +175,8 @@ class BestbuyBot:
                     # Checking if item is still in cart.
                     try:
                         wait.until(
-                            EC.presence_of_element_located((By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary']")))
+                            EC.presence_of_element_located(
+                                (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary']")))
                         time.sleep(1)
                         self.driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary')
                         print("Item Is Still In Cart.")
@@ -178,12 +190,14 @@ class BestbuyBot:
 
                     # Click Shipping Option. (if available)
                     try:
-                        wait2.until(EC.presence_of_element_located((By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
+                        wait2.until(EC.presence_of_element_located(
+                            (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
                         time.sleep(2)
                         shipping_class = driver.find_element_by_xpath("//*[@class='ispu-card__switch']")
                         shipping_class.click()
                         print("Clicking Shipping Option.")
-                    except (NoSuchElementException, TimeoutException, ElementNotInteractableException, ElementClickInterceptedException) as error:
+                    except (NoSuchElementException, TimeoutException, ElementNotInteractableException,
+                            ElementClickInterceptedException) as error:
                         print(f'shipping error: {error}')
 
                     # Trying CVV
@@ -200,7 +214,8 @@ class BestbuyBot:
                     if self.auto_buy and not self.stop:
                         # Final Checkout.
                         try:
-                            wait2.until(EC.presence_of_element_located((By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
+                            wait2.until(EC.presence_of_element_located(
+                                (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
                             print("clicked checkout")
                             # comment the line down below to avoid buying when testing bot. vv
                             self.driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary button__fast-track')
@@ -227,6 +242,11 @@ class BestbuyBot:
 
     def run(self):
         self.searching_for_card(self.driver)
+
+    def restart(self):
+        self.driver.quit()
+        self.driver = create_driver(self.global_config)
+        return self.driver
 
     def stop_running(self):
         self.stop = True
