@@ -18,6 +18,7 @@
 
   "amazon": [
     {
+      "name": "amazon_3090",
       "username": "",
       "password": "",
       "amazonPage": "",
@@ -33,11 +34,13 @@
 
   "bestbuy": [
     {
+      "name": "bestbuy_3090_nvidia",
       "url": "https://www.bestbuy.com/site/nvidia-geforce-rtx-3090-24gb-gddr6x-pci-express-4-0-graphics-card-titanium-and-black/6429434.p?skuId=6429434",
       "min_interval": 2,
       "max_interval": 4
     },
     {
+      "name": "bestbuy_3090_evga",
       "url": "https://www.bestbuy.com/site/evga-geforce-rtx-3090-xc3-ultra-gaming-24gb-gddr6-pci-express-4-0-graphics-card/6434198.p?skuId=6434198",
       "min_interval": 2,
       "max_interval": 4

@@ -72,6 +72,7 @@ class BestbuyBot:
 
         self.message_sender = message_sender
         self.on_buy_success = on_buy_success
+        self.bot_name = bestbuy_config["name"]
         self.min_interval = bestbuy_config["min_interval"]
         self.max_interval = bestbuy_config["max_interval"]
         self.stop = False
@@ -115,6 +116,7 @@ class BestbuyBot:
             count += 1
 
             if count >= self.restart_count:
+                self.message_sender.send_message("restart driver", self.bot_name)
                 count = 0
                 driver = self.restart()
 
@@ -122,6 +124,7 @@ class BestbuyBot:
             wait = WebDriverWait(driver, 15)
             wait2 = WebDriverWait(driver, 5)
 
+            print(f"{self.bot_name}: Try buying card...")
             try:
                 add_to_cart_button = soup.find('button', {
                     'class': 'btn btn-primary btn-lg btn-block btn-leading-ficon add-to-cart-button'})
@@ -146,7 +149,7 @@ class BestbuyBot:
                         print(f'Queue System Error: ${error}')
 
                     # Sending Text Message To let you know you are in the queue system.
-                    self.message_sender.send_message(f'Your In Queue System on Bestbuy! {self.url}')
+                    self.message_sender.send_message(f'Your In Queue System on Bestbuy! {self.url}', self.bot_name)
 
                     # In queue, just waiting for "add to cart" button to turn clickable again.
                     # page refresh every 15 seconds until Add to Cart button reappears.
@@ -230,7 +233,7 @@ class BestbuyBot:
                             self.on_buy_success()
 
                         # Sending Text Message To let you know you are in the queue system.
-                        self.message_sender.send_message(f'Order Placed')
+                        self.message_sender.send_message(f'Order Placed', self.bot_name)
 
                     time.sleep(1800)
                     driver.quit()

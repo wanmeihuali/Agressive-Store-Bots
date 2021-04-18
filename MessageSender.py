@@ -19,8 +19,10 @@ class MessageSender:
             self.authToken = config["twilio"]["authToken"]
             self.twilio_client = Client(self.accountSid, self.authToken)
 
-    def send_message(self, content):
+    def send_message(self, content, sender=None):
         with self.lock:
+            if sender is not None:
+                content = "Sender: " + sender + ": " + content
             if self.telegram_bot is not None:
                 self.telegram_bot.send_message(chat_id=self.telegram_chat_id, text=content)
             if self.twilio_client is not None:

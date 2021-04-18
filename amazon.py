@@ -13,12 +13,13 @@ class AmazonBot:
 
         self.global_config = global_config
         # Amazon credentials
+        self.bot_name = amazon_config["name"]
         self.username = amazon_config["username"]
         self.password = amazon_config["password"]
 
         self.message_sender = message_sender
         # Twilio configuration
-        self.message_sender.send_message("store_bot started")
+        self.message_sender.send_message("store_bot started", self.bot_name)
 
         self.amazonPage = amazon_config["amazonPage"]
 
@@ -85,6 +86,7 @@ class AmazonBot:
             count += 1
 
             if count >= self.restart_count:
+                self.message_sender.send_message("restart driver", self.bot_name)
                 count = 0
                 driver = self.restart()
                 self.login_attempt(self.driver)
@@ -98,6 +100,7 @@ class AmazonBot:
                     self.go_home()
                     continue
 
+                print(f"{self.bot_name}: Looking for card in {len(find_all_cards)} options")
                 index = 0
                 for card in find_all_cards:
                     status = ''
@@ -185,7 +188,7 @@ class AmazonBot:
                                     print(f'Order Placed for {title} Price: ${str(price)}! Notifying and exiting..')
 
                                     self.message_sender.send_message(
-                                        f'Order Placed for "{title}" Price: ${str(price)}!')
+                                        f'Order Placed for "{title}" Price: ${str(price)}!', self.bot_name)
 
                                     for i in range(3):
                                         print('\a')

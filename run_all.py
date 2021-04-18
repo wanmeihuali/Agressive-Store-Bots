@@ -4,6 +4,7 @@ from amazon import AmazonBot
 from bestbuy import BestbuyBot
 import threading
 
+
 class BotRunner:
     def __init__(self):
         self.bots = []
@@ -32,6 +33,7 @@ class BotRunner:
 
         for thread in threads:
             thread.join()
+
 
 if __name__ == "__main__":
     bot_runner = BotRunner()

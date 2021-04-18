@@ -50,7 +50,10 @@ def create_driver(bot_config):
     default_profile = get_default_profile(profile_path)
     print(f'Launching Firefox using default profile: {default_profile}')
     profile = prepare_sniper_profile(profile_path / default_profile)
-    driver = webdriver.Firefox(firefox_profile=profile, executable_path=geckodriver_path)
+
+    opts = webdriver.FirefoxOptions()
+    opts.headless = True
+    driver = webdriver.Firefox(firefox_profile=profile, executable_path=geckodriver_path, options=opts)
     return driver
 
 
