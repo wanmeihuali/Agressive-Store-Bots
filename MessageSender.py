@@ -13,10 +13,10 @@ class MessageSender:
 
         self.twilio_client = None
         if config["twilio"] is not None:
-            self.toNumber = '+13125369588'
-            self.fromNumber = '+12032957363'
-            self.accountSid = 'ACc220ddb24b4e4f3c6177072ce77cf566'
-            self.authToken = '5149f8c2b6c0da17e45beadb30dadca7'
+            self.toNumber = config["twilio"]["toNumber"]
+            self.fromNumber = config["twilio"]["fromNumber"]
+            self.accountSid = config["twilio"]["accountSid"]
+            self.authToken = config["twilio"]["authToken"]
             self.twilio_client = Client(self.accountSid, self.authToken)
 
     def send_message(self, content):
