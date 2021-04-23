@@ -7,7 +7,7 @@ import configparser
 from selenium import webdriver
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.firefox.options import FirefoxProfile
-from selenium.common.exceptions import NoSuchElementException, WebDriverException
+from selenium.common.exceptions import NoSuchElementException, WebDriverException, JavascriptException
 import sys
 import time
 
@@ -52,7 +52,7 @@ def create_driver(bot_config):
     profile = prepare_sniper_profile(profile_path / default_profile)
 
     opts = webdriver.FirefoxOptions()
-    opts.headless = True
+    opts.headless = bot_config["hide_window"]
     driver = webdriver.Firefox(firefox_profile=profile, executable_path=geckodriver_path, options=opts)
     return driver
 
@@ -63,11 +63,13 @@ def time_sleep(x, driver):
         sys.stdout.write('{:2d} seconds'.format(i))
         sys.stdout.flush()
         time.sleep(1)
-    driver.execute_script('window.localStorage.clear();')
+
     try:
+        driver.execute_script('window.localStorage.clear();')
         driver.refresh()
     except WebDriverException:
         print('Error while refreshing - internet down?')
+
     sys.stdout.write('\r')
     sys.stdout.write('Page refreshed\n')
     sys.stdout.flush()

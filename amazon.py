@@ -39,7 +39,7 @@ class AmazonBot:
         self.stop = False
 
         # restart driver periodically to avoid flushing tmp folder
-        self.restart_count = 500
+        self.restart_count = 5000
 
     def driver_wait(self, driver, find_type, selector):
         """Driver Wait Settings."""
@@ -242,6 +242,7 @@ class AmazonBot:
         return self.driver
 
     def stop_running(self):
+        self.driver.quit()
         self.stop = True
 
 

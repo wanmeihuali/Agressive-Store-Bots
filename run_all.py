@@ -3,6 +3,7 @@ from MessageSender import MessageSender
 from amazon import AmazonBot
 from bestbuy import BestbuyBot
 import threading
+import signal
 
 
 class BotRunner:
@@ -35,6 +36,13 @@ class BotRunner:
             thread.join()
 
 
+
+
 if __name__ == "__main__":
+
     bot_runner = BotRunner()
+
+    signal.signal(signal.SIGINT, lambda signum, frame: bot_runner.stop_all)
+    signal.signal(signal.SIGTERM, lambda signum, frame: bot_runner.stop_all)
+
     bot_runner.run_all()

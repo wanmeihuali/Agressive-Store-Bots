@@ -75,11 +75,12 @@ class BestbuyBot:
         self.bot_name = bestbuy_config["name"]
         self.min_interval = bestbuy_config["min_interval"]
         self.max_interval = bestbuy_config["max_interval"]
+        self.password = bestbuy_config["password"]
         self.stop = False
         self.driver = create_driver(global_config)
 
         # restart driver periodically to avoid flushing tmp folder
-        self.restart_count = 500
+        self.restart_count = 4000
 
     def extract_page(self, ):
         html = self.driver.page_source
@@ -110,9 +111,9 @@ class BestbuyBot:
 
     def searching_for_card(self, driver):
         """Scanning for card."""
-        driver.get(self.url)
         count = 0
         while not self.stop:
+            driver.get(self.url)
             count += 1
 
             if count >= self.restart_count:
@@ -181,27 +182,74 @@ class BestbuyBot:
                             EC.presence_of_element_located(
                                 (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary']")))
                         time.sleep(1)
-                        self.driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary')
+                        #self.driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary')
                         print("Item Is Still In Cart.")
                     except (NoSuchElementException, TimeoutException):
                         print("Item is not in cart anymore. Retrying..")
                         time_sleep(3, driver)
-                        self.searching_for_card(driver)
+                        #self.searching_for_card(driver)
+                        continue
 
                     # Logging Into Account.
                     print("Attempting to Login. Firefox should remember your login info to auto login.")
 
+
                     # Click Shipping Option. (if available)
                     try:
+                        #wait2.until(EC.presence_of_element_located(
+                        #    (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
+
+                        time.sleep(15)
+
                         wait2.until(EC.presence_of_element_located(
-                            (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
-                        time.sleep(2)
-                        shipping_class = driver.find_element_by_xpath("//*[@class='ispu-card__switch']")
+                            (By.XPATH, "//input[@type='radio']")))
+                        time.sleep(15)
+                        #shipping_class = driver.find_element_by_xpath("//*[@class='ispu-card__switch']")
+                        selections = driver.find_elements_by_xpath("//input[@type='radio']")
+
+                        # %%
+                        shipping_class = None
+                        for selection in selections:
+                            if "shipping" in selection.get_attribute("id"):
+                                shipping_class = selection
+
                         shipping_class.click()
                         print("Clicking Shipping Option.")
+                        time.sleep(15)
                     except (NoSuchElementException, TimeoutException, ElementNotInteractableException,
                             ElementClickInterceptedException) as error:
                         print(f'shipping error: {error}')
+
+                    # Final Checkout.
+                    try:
+                        wait2.until(EC.presence_of_element_located(
+                            (By.XPATH, "//button[contains(text(),'Checkout')]")))
+                        #wait2.until(EC.presence_of_element_located(
+                        #    (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
+                        print("clicked checkout")
+                        # comment the line down below to avoid buying when testing bot. vv
+                        #self.driver_click(driver, 'xpath', 'btn btn-lg btn-block btn-primary button__fast-track')
+                        try:
+                            driver.find_element_by_xpath("//button[contains(text(),'Checkout')]").click()
+                        except NoSuchElementException:
+                            driver.implicitly_wait(1)
+
+                    except (NoSuchElementException, TimeoutException, ElementNotInteractableException):
+                        print("Could Not Complete Checkout.")
+
+                    # Trying password
+                    try:
+                        print("\nTrying password Number.\n")
+                        wait2.until(EC.presence_of_element_located((By.ID, "fld-p1")))
+                        time.sleep(1)
+                        password = driver.find_element_by_id("fld-p1")
+                        time.sleep(1)
+                        password.send_keys(self.password)
+                        time.sleep(1)
+                        driver.find_element_by_xpath("//button[contains(text(),'Sign In')]").click()
+                        time.sleep(15)
+                    except (NoSuchElementException, TimeoutException):
+                        pass
 
                     # Trying CVV
                     try:
@@ -215,7 +263,7 @@ class BestbuyBot:
                         pass
 
                     if self.auto_buy and not self.stop:
-                        # Final Checkout.
+
                         try:
                             wait2.until(EC.presence_of_element_located(
                                 (By.XPATH, "//*[@class='btn btn-lg btn-block btn-primary button__fast-track']")))
@@ -252,6 +300,7 @@ class BestbuyBot:
         return self.driver
 
     def stop_running(self):
+        self.driver.quit()
         self.stop = True
 
 
@@ -259,5 +308,5 @@ if __name__ == '__main__':
     with open("config.json", "r") as f:
         config = json.load(f)
     sender = MessageSender(config)
-    bot = BestbuyBot(config["global"], config["bestbuy"][0], sender)
+    bot = BestbuyBot(config["global"], config["bestbuy"][2], sender)
     bot.run()
