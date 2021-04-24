@@ -42,7 +42,7 @@ def prepare_sniper_profile(default_profile_path):
 
 def create_driver(bot_config):
     if "geckodriver_path" not in bot_config:
-        geckodriver_path = GeckoDriverManager.install()
+        geckodriver_path = GeckoDriverManager().install()
         bot_config["geckodriver_path"] = geckodriver_path
     else:
         geckodriver_path = bot_config["geckodriver_path"]
