@@ -116,10 +116,6 @@ class BestbuyBot:
             driver.get(self.url)
             count += 1
 
-            if count >= self.restart_count:
-                self.message_sender.send_message("restart driver", self.bot_name)
-                count = 0
-                driver = self.restart()
 
             soup = self.extract_page()
             wait = WebDriverWait(driver, 15)
@@ -292,7 +288,11 @@ class BestbuyBot:
             time_sleep(random.randint(self.min_interval, self.max_interval), driver)
 
     def run(self):
-        self.searching_for_card(self.driver)
+        while not self.stop:
+            try:
+                self.searching_for_card(self.driver)
+            except Exception:
+                self.restart()
 
     def restart(self):
         self.driver.quit()

@@ -85,11 +85,6 @@ class AmazonBot:
         while not self.stop:
             count += 1
 
-            if count >= self.restart_count:
-                self.message_sender.send_message("restart driver", self.bot_name)
-                count = 0
-                driver = self.restart()
-                self.login_attempt(self.driver)
 
             time.sleep(1)
             try:
@@ -233,8 +228,12 @@ class AmazonBot:
         return passed
 
     def run(self):
-        self.login_attempt(self.driver)
-        self.finding_cards(self.driver)
+        while not self.stop:
+            try:
+                self.login_attempt(self.driver)
+                self.finding_cards(self.driver)
+            except Exception:
+                self.restart()
 
     def restart(self):
         self.driver.quit()
